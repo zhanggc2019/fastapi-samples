@@ -31,6 +31,7 @@ class Settings(BaseSettings):
         extra="ignore",
     )
     API_V1_STR: str = "/api/v1"
+    PORT: int = 8000
     SECRET_KEY: str = secrets.token_urlsafe(32)
     # 60 minutes * 24 hours * 8 days = 8 days
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 8
@@ -59,7 +60,7 @@ class Settings(BaseSettings):
     @computed_field  # type: ignore[prop-decorator]
     @property
     def SQLALCHEMY_DATABASE_URI(self) -> PostgresDsn:
-        return PostgresDsn.build(
+        return PostgresDsn.build(  # pyright: ignore[reportAttributeAccessIssue]
             scheme="postgresql+psycopg",
             username=self.POSTGRES_USER,
             password=self.POSTGRES_PASSWORD,
@@ -114,6 +115,31 @@ class Settings(BaseSettings):
         )
 
         return self
+
+    
+    # 时间配置
+    DATETIME_TIMEZONE: str = 'Asia/Shanghai'
+    DATETIME_FORMAT: str = '%Y-%m-%d %H:%M:%S'
+
+    # Trace ID
+    TRACE_ID_REQUEST_HEADER_KEY: str = 'X-Request-ID'
+    TRACE_ID_LOG_LENGTH: int = 32  # UUID 长度，必须小于等于 32
+    TRACE_ID_LOG_DEFAULT_VALUE: str = '-'
+
+    # 日志
+    LOG_FORMAT: str = (
+        '<green>{time:YYYY-MM-DD HH:mm:ss.SSS}</> | <lvl>{level: <8}</> | <cyan>{correlation_id}</> | <lvl>{message}</>'
+    )
+
+    # 日志（控制台）
+    LOG_STD_LEVEL: str = 'INFO'
+
+    # 日志（文件）
+    LOG_FILE_ACCESS_LEVEL: str = 'INFO'
+    LOG_FILE_ERROR_LEVEL: str = 'ERROR'
+    LOG_ACCESS_FILENAME: str = 'fba_access.log'
+    LOG_ERROR_FILENAME: str = 'fba_error.log'
+
 
 
 settings = Settings()  # type: ignore

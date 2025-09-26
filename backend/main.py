@@ -3,7 +3,8 @@ from fastapi.routing import APIRoute
 from starlette.middleware.cors import CORSMiddleware
 
 from app.api.main import api_router
-from app.core.config import settings
+from core.config import settings
+from common.log import log
 
 
 def custom_generate_unique_id(route: APIRoute) -> str:
@@ -25,10 +26,13 @@ if settings.all_cors_origins:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+    log.info(f"Allowed CORS origins: {settings.all_cors_origins}")
 
 app.include_router(api_router, prefix=settings.API_V1_STR)
+port = settings.PORT
+log.info({"System":f"启动成功, 端口 {port}"})
 
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run(app, host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run(app, host="0.0.0.0", port=port, reload=True)
