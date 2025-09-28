@@ -16,6 +16,7 @@ from sqlalchemy.ext.asyncio import (
 from common.log import log
 from common.model import MappedBase
 from core.config import settings
+from sqlmodel import SQLModel
 
 
 def create_database_url(unittest: bool = False) -> URL:
@@ -103,8 +104,11 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
 
 async def create_tables() -> None:
     """创建数据库表"""
+    # 导入所有模型以确保它们被注册到SQLModel.metadata
+    from app import models  # noqa: F401
+
     async with async_engine.begin() as coon:
-        await coon.run_sync(MappedBase.metadata.create_all)
+        await coon.run_sync(SQLModel.metadata.create_all)
 
 
 def uuid4_str() -> str:

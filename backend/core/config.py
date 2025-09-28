@@ -29,19 +29,19 @@ class Settings(BaseSettings):
         env_ignore_empty=True,
         extra="ignore",
     )
-    API_V1_STR: str = "/api/v1"
+    API_V1_STR: str = "/api"
     PORT: int = 8000
-    SECRET_KEY: str = secrets.token_urlsafe(32)
+    SECRET_KEY: str = "0efbbb57cc5eb823cfafece547d77683"
     # 60 minutes * 24 hours * 8 days = 8 days
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 8
-    FRONTEND_HOST: str = "http://localhost:5173"
+    FRONTEND_HOST: str = "http://localhost:3000"
     ENVIRONMENT: Literal["dev", "production"] = "dev"
 
     CORS_ALLOWED_ORIGINS: Annotated[
         list[AnyUrl] | str, BeforeValidator(parse_cors)
     ] = [
         'http://127.0.0.1:8000',
-        'http://localhost:5173',
+        'http://localhost:3000',
     ]
     # cros 中间件配置
     MIDDLEWARE_CORS: bool = True
