@@ -26,6 +26,11 @@ dependencies = [
     "itsdangerous>=2.2.0",
     # Platform-specific dependencies
     "gunicorn>=22.0.0; sys_platform != 'win32'",
+    "fastapi-pagination>=0.14.1",
+    "fastapi-limiter>=0.1.6",
+    "asyncpg>=0.30.0",
+    "psycopg2>=2.9.10",
+    "aiosqlite>=0.21.0",
 ]
 
 [tool.uv]

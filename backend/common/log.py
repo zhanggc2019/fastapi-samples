@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 import inspect
 import logging
 import os
@@ -93,7 +92,7 @@ def setup_logging() -> None:
             'filter': lambda record: correlation_id_filter(record),  # type: ignore
         }
     ]
-    
+
     logger.configure(handlers=handlers)  # type: ignore
 
 

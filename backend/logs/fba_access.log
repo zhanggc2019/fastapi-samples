@@ -1,0 +1,78 @@
+2025-09-28 13:21:07.343 | INFO     | - | Started server process [20872]
+2025-09-28 13:21:07.343 | INFO     | - | Waiting for application startup.
+2025-09-28 13:21:46.178 | INFO     | - | Started server process [13848]
+2025-09-28 13:21:46.178 | INFO     | - | Waiting for application startup.
+2025-09-28 13:22:55.933 | INFO     | - | Started server process [28624]
+2025-09-28 13:22:55.934 | INFO     | - | Waiting for application startup.
+2025-09-28 13:22:57.568 | INFO     | - | Started server process [29132]
+2025-09-28 13:22:57.568 | INFO     | - | Waiting for application startup.
+2025-09-28 13:23:14.500 | INFO     | - | Started server process [19260]
+2025-09-28 13:23:14.500 | INFO     | - | Waiting for application startup.
+2025-09-28 13:23:16.091 | INFO     | - | Started server process [11744]
+2025-09-28 13:23:16.092 | INFO     | - | Waiting for application startup.
+2025-09-28 13:23:56.202 | INFO     | - | Started server process [30868]
+2025-09-28 13:23:56.203 | INFO     | - | Waiting for application startup.
+2025-09-28 13:23:57.891 | INFO     | - | Started server process [11256]
+2025-09-28 13:23:57.892 | INFO     | - | Waiting for application startup.
+2025-09-28 13:26:04.897 | INFO     | - | Started server process [16024]
+2025-09-28 13:26:04.898 | INFO     | - | Waiting for application startup.
+2025-09-28 13:26:06.285 | INFO     | - | Started server process [3516]
+2025-09-28 13:26:06.286 | INFO     | - | Waiting for application startup.
+2025-09-28 13:39:47.539 | INFO     | - | Started server process [16868]
+2025-09-28 13:39:47.539 | INFO     | - | Waiting for application startup.
+2025-09-28 13:39:58.036 | INFO     | - | Started server process [10568]
+2025-09-28 13:39:58.037 | INFO     | - | Waiting for application startup.
+2025-09-28 13:39:59.537 | INFO     | - | Started server process [21720]
+2025-09-28 13:39:59.538 | INFO     | - | Waiting for application startup.
+2025-09-28 13:40:01.081 | INFO     | - | Started server process [30104]
+2025-09-28 13:40:01.081 | INFO     | - | Waiting for application startup.
+2025-09-28 13:41:11.314 | INFO     | - | Started server process [768]
+2025-09-28 13:41:11.315 | INFO     | - | Waiting for application startup.
+2025-09-28 13:48:39.649 | INFO     | - | Started server process [24836]
+2025-09-28 13:48:39.650 | INFO     | - | Waiting for application startup.
+2025-09-28 13:48:39.676 | INFO     | - | Started server process [11284]
+2025-09-28 13:48:39.677 | INFO     | - | Waiting for application startup.
+2025-09-28 13:48:57.813 | INFO     | - | Started server process [2772]
+2025-09-28 13:48:57.813 | INFO     | - | Waiting for application startup.
+2025-09-28 13:58:28.011 | INFO     | - | Started server process [30688]
+2025-09-28 13:58:28.012 | INFO     | - | Waiting for application startup.
+2025-09-28 13:58:28.593 | INFO     | - | Application startup complete.
+2025-09-28 13:59:14.852 | INFO     | - | Started server process [20432]
+2025-09-28 13:59:14.853 | INFO     | - | Waiting for application startup.
+2025-09-28 13:59:15.413 | INFO     | - | Application startup complete.
+2025-09-28 14:00:37.320 | INFO     | - | Shutting down
+2025-09-28 14:00:37.430 | INFO     | - | Waiting for application shutdown.
+2025-09-28 14:00:37.431 | INFO     | - | Application shutdown complete.
+2025-09-28 14:00:37.432 | INFO     | - | Finished server process [20432]
+2025-09-28 14:02:39.930 | INFO     | - | Started server process [6968]
+2025-09-28 14:02:39.931 | INFO     | - | Waiting for application startup.
+2025-09-28 14:02:40.512 | INFO     | - | Application startup complete.
+2025-09-28 14:02:44.113 | INFO     | - | Shutting down
+2025-09-28 14:02:44.223 | INFO     | - | Waiting for application shutdown.
+2025-09-28 14:02:44.224 | INFO     | - | Application shutdown complete.
+2025-09-28 14:02:44.225 | INFO     | - | Finished server process [6968]
+2025-09-28 14:02:45.642 | INFO     | - | Started server process [29100]
+2025-09-28 14:02:45.643 | INFO     | - | Waiting for application startup.
+2025-09-28 14:02:46.190 | INFO     | - | Application startup complete.
+2025-09-28 14:03:38.917 | INFO     | 12ccc14afc45438b87f8a397affd5efd | 127.0.0.1       | GET      | 200    | /docs | 0.378ms
+2025-09-28 14:04:01.045 | INFO     | - | Shutting down
+2025-09-28 14:04:01.152 | INFO     | - | Waiting for application shutdown.
+2025-09-28 14:04:01.152 | INFO     | - | Application shutdown complete.
+2025-09-28 14:04:01.153 | INFO     | - | Finished server process [29100]
+2025-09-28 14:04:41.760 | INFO     | - | Started server process [20560]
+2025-09-28 14:04:41.761 | INFO     | - | Waiting for application startup.
+2025-09-28 14:04:42.305 | INFO     | - | Application startup complete.
+2025-09-28 14:05:19.671 | INFO     | - | Shutting down
+2025-09-28 14:05:19.782 | INFO     | - | Waiting for application shutdown.
+2025-09-28 14:05:19.784 | INFO     | - | Application shutdown complete.
+2025-09-28 14:05:19.784 | INFO     | - | Finished server process [20560]
+2025-09-28 14:10:30.237 | INFO     | - | Started server process [25216]
+2025-09-28 14:10:30.238 | INFO     | - | Waiting for application startup.
+2025-09-28 14:10:30.874 | INFO     | - | Application startup complete.
+2025-09-28 14:13:46.856 | INFO     | c3bb0bfaa1f3445d900369d007ad4ea1 | 127.0.0.1       | GET      | 404    | / | 0.411ms
+2025-09-28 14:13:46.930 | INFO     | 3a474e37a7fa4edda29fa3d318535aa4 | 127.0.0.1       | GET      | 404    | /favicon.ico | 0.291ms
+2025-09-28 14:23:23.831 | INFO     | - | Started server process [17216]
+2025-09-28 14:23:23.832 | INFO     | - | Waiting for application startup.
+2025-09-28 14:23:24.389 | INFO     | - | Application startup complete.
+2025-09-28 14:51:55.226 | INFO     | c9993ad803c9419daba27991d4a19305 | 127.0.0.1       | GET      | 200    | /docs | 0.211ms
+2025-09-28 14:51:55.944 | INFO     | e39636ea212f4ea2bd3ef9330bcdddcb | 127.0.0.1       | GET      | 200    | /openapi.json | 14.262ms

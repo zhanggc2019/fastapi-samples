@@ -1,38 +1,26 @@
-from fastapi import FastAPI
-from fastapi.routing import APIRoute
-from starlette.middleware.cors import CORSMiddleware
+#!/usr/bin/env python3
+import os
 
-from app.api.main import api_router
-from core.config import settings
-from common.log import log
+import uvicorn
 
+if __name__ == '__main__':
+    # 为什么独立此启动文件：https://stackoverflow.com/questions/64003384
 
-def custom_generate_unique_id(route: APIRoute) -> str:
-    return f"{route.tags[0]}-{route.name}"
+    # DEBUG:
+    # 如果你喜欢在 IDE 中进行 DEBUG，可在 IDE 中直接右键启动此文件
+    # 如果你喜欢通过 print 方式进行调试，建议使用 fba cli 方式启动服务
 
-
-app = FastAPI(
-    title=settings.PROJECT_NAME,
-    openapi_url=f"{settings.API_V1_STR}/openapi.json",
-    generate_unique_id_function=custom_generate_unique_id,
-)
-
-# Set all CORS enabled origins
-if settings.all_cors_origins:
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=settings.all_cors_origins,
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
-    )
-    log.info(f"Allowed CORS origins: {settings.all_cors_origins}")
-
-app.include_router(api_router, prefix=settings.API_V1_STR)
-port = settings.PORT
-log.info({"System":f"启动成功, 端口 {port}"})
-
-if __name__ == "__main__":
-    import uvicorn
-
-    uvicorn.run(app, host="0.0.0.0", port=port, reload=True)
+    # Warning:
+    # 如果你正在通过 python 命令启动此文件，请遵循以下事宜：
+    # 1. 按照官方文档通过 uv 安装依赖
+    # 2. 命令行空间位于 backend 目录下
+    try:
+        uvicorn.run(
+            app='server:app',
+            host='127.0.0.1',
+            port=8000,
+            reload=True,
+            reload_excludes=[os.path.abspath('./.venv')],
+        )
+    except Exception as e:
+        raise e

@@ -1,6 +1,6 @@
 import secrets
 import warnings
-from typing import Annotated, Any, Literal
+from typing import Annotated, Any, Literal, Self
 
 from pydantic import (
     AnyUrl,
@@ -12,7 +12,6 @@ from pydantic import (
     model_validator,
 )
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from typing_extensions import Self
 
 
 def parse_cors(v: Any) -> list[str] | str:
@@ -25,8 +24,8 @@ def parse_cors(v: Any) -> list[str] | str:
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        # Use top level .env file (one level above ./backend/)
-        env_file="../.env",
+        # Use .env file in current directory
+        env_file=".env",
         env_ignore_empty=True,
         extra="ignore",
     )
@@ -36,37 +35,52 @@ class Settings(BaseSettings):
     # 60 minutes * 24 hours * 8 days = 8 days
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 8
     FRONTEND_HOST: str = "http://localhost:5173"
-    ENVIRONMENT: Literal["local", "staging", "production"] = "local"
+    ENVIRONMENT: Literal["dev", "production"] = "dev"
 
-    BACKEND_CORS_ORIGINS: Annotated[
+    CORS_ALLOWED_ORIGINS: Annotated[
         list[AnyUrl] | str, BeforeValidator(parse_cors)
-    ] = []
+    ] = [
+        'http://127.0.0.1:8000',
+        'http://localhost:5173',
+    ]
+    # cros 中间件配置
+    MIDDLEWARE_CORS: bool = True
+    CORS_EXPOSE_HEADERS: list[str] = [
+        'X-Request-ID',
+    ]
 
     @computed_field  # type: ignore[prop-decorator]
     @property
     def all_cors_origins(self) -> list[str]:
-        return [str(origin).rstrip("/") for origin in self.BACKEND_CORS_ORIGINS] + [
+        return [str(origin).rstrip("/") for origin in self.CORS_ALLOWED_ORIGINS] + [
             self.FRONTEND_HOST
         ]
 
     PROJECT_NAME: str
     SENTRY_DSN: HttpUrl | None = None
-    POSTGRES_SERVER: str
-    POSTGRES_PORT: int = 5432
-    POSTGRES_USER: str
-    POSTGRES_PASSWORD: str = ""
-    POSTGRES_DB: str = ""
+
+    # 数据库通用配置
+    DATABASE_TYPE: str
+    DATABASE_USER: str
+    DATABASE_PASSWORD: str
+    DATABASE_HOST: str
+    DATABASE_PORT: int
+    # 数据库名称
+    DATABASE_SCHEMA: str
+    DATABASE_CHARSET: str
+    DATABASE_ECHO: bool
+    DATABASE_POOL_ECHO: bool
 
     @computed_field  # type: ignore[prop-decorator]
     @property
     def SQLALCHEMY_DATABASE_URI(self) -> PostgresDsn:
         return PostgresDsn.build(  # pyright: ignore[reportAttributeAccessIssue]
             scheme="postgresql+psycopg",
-            username=self.POSTGRES_USER,
-            password=self.POSTGRES_PASSWORD,
-            host=self.POSTGRES_SERVER,
-            port=self.POSTGRES_PORT,
-            path=self.POSTGRES_DB,
+            username=self.DATABASE_USER,
+            password=self.DATABASE_PASSWORD,
+            host=self.DATABASE_HOST,
+            port=self.DATABASE_PORT,
+            path=self.DATABASE_SCHEMA,
         )
 
     SMTP_TLS: bool = True
@@ -101,7 +115,7 @@ class Settings(BaseSettings):
                 f'The value of {var_name} is "changethis", '
                 "for security, please change it, at least for deployments."
             )
-            if self.ENVIRONMENT == "local":
+            if self.ENVIRONMENT == "dev":
                 warnings.warn(message, stacklevel=1)
             else:
                 raise ValueError(message)
@@ -109,14 +123,13 @@ class Settings(BaseSettings):
     @model_validator(mode="after")
     def _enforce_non_default_secrets(self) -> Self:
         self._check_default_secret("SECRET_KEY", self.SECRET_KEY)
-        self._check_default_secret("POSTGRES_PASSWORD", self.POSTGRES_PASSWORD)
+        self._check_default_secret("DATABASE_PASSWORD", self.DATABASE_PASSWORD)
         self._check_default_secret(
             "FIRST_SUPERUSER_PASSWORD", self.FIRST_SUPERUSER_PASSWORD
         )
 
         return self
 
-    
     # 时间配置
     DATETIME_TIMEZONE: str = 'Asia/Shanghai'
     DATETIME_FORMAT: str = '%Y-%m-%d %H:%M:%S'
@@ -125,6 +138,15 @@ class Settings(BaseSettings):
     TRACE_ID_REQUEST_HEADER_KEY: str = 'X-Request-ID'
     TRACE_ID_LOG_LENGTH: int = 32  # UUID 长度，必须小于等于 32
     TRACE_ID_LOG_DEFAULT_VALUE: str = '-'
+
+
+     # .env Redis
+    REDIS_HOST: str
+    REDIS_PORT: int
+    REDIS_PASSWORD: str|None = None
+    REDIS_DATABASE: int|str
+    # Redis
+    REDIS_TIMEOUT: int = 5
 
     # 日志
     LOG_FORMAT: str = (
@@ -139,6 +161,11 @@ class Settings(BaseSettings):
     LOG_FILE_ERROR_LEVEL: str = 'ERROR'
     LOG_ACCESS_FILENAME: str = 'fba_access.log'
     LOG_ERROR_FILENAME: str = 'fba_error.log'
+
+    I18N_DEFAULT_LANGUAGE: str = 'zh-CN'
+    # 静态文件配置
+    FASTAPI_STATIC_FILES: bool = True
+    REQUEST_LIMITER_REDIS_PREFIX: str = "fastapi-limiter"
 
 
 

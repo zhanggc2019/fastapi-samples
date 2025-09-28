@@ -8,10 +8,10 @@ from jwt.exceptions import InvalidTokenError
 from pydantic import ValidationError
 from sqlmodel import Session
 
+from app.models import TokenPayload, User
 from core import security
 from core.config import settings
-from core.db import engine
-from app.models import TokenPayload, User
+from database.db import async_engine
 
 reusable_oauth2 = OAuth2PasswordBearer(
     tokenUrl=f"{settings.API_V1_STR}/login/access-token"
@@ -19,7 +19,7 @@ reusable_oauth2 = OAuth2PasswordBearer(
 
 
 def get_db() -> Generator[Session, None, None]:
-    with Session(engine) as session:
+    with Session(async_engine) as session:
         yield session
 
 
