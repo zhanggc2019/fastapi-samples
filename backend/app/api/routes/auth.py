@@ -1,25 +1,18 @@
-import uuid
-from typing import Any
 from datetime import timedelta
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
+from sqlalchemy import select
 
 from app.api.deps import SessionDep
-from app.models import (
-    User, UserRegister, LoginRequest, LoginResponse,
-    RegisterResponse
-)
-from core.security import (
-    authenticate_user, create_access_token,
-    get_password_hash
-)
-from sqlalchemy import select
+from app.models import LoginRequest, LoginResponse, RegisterResponse, User, UserRegister
 from core.config import settings
+from core.security import authenticate_user, create_access_token, get_password_hash
 
 router = APIRouter()
 
-@router.post("/auth/login/access-token", response_model=LoginResponse)
+@router.post("/auth/login/access-token", response_model=LoginResponse, name="login_access_token")
 @router.post("/auth/login", response_model=LoginResponse)
 async def login(
     *,
@@ -27,7 +20,7 @@ async def login(
     form_data: OAuth2PasswordRequestForm = Depends()
 ) -> Any:
     """
-    用户登录
+    用户登录，认证方式 ：使用标准的OAuth2密码授权表单，REST API调用，适合前端应用通过JSON格式发送请求
     """
     user = await authenticate_user(db, form_data.username, form_data.password)
     if not user:
@@ -63,7 +56,7 @@ async def login_credentials(
     login_data: LoginRequest
 ) -> Any:
     """
-    使用JSON格式登录
+    认证方式 ：使用自定义的JSON请求体 ( LoginRequest )，REST API调用，适合前端应用通过JSON格式发送请求
     """
     user = await authenticate_user(db, login_data.email, login_data.password)
     if not user:

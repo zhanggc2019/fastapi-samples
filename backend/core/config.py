@@ -1,4 +1,3 @@
-import secrets
 import warnings
 from typing import Annotated, Any, Literal, Self
 
@@ -159,13 +158,13 @@ class Settings(BaseSettings):
     # 日志（文件）
     LOG_FILE_ACCESS_LEVEL: str = 'INFO'
     LOG_FILE_ERROR_LEVEL: str = 'ERROR'
-    LOG_ACCESS_FILENAME: str = 'fba_access.log'
-    LOG_ERROR_FILENAME: str = 'fba_error.log'
+    LOG_ACCESS_FILENAME: str = 'api_access.log'
+    LOG_ERROR_FILENAME: str = 'api_error.log'
 
     I18N_DEFAULT_LANGUAGE: str = 'zh-CN'
     # 静态文件配置
     FASTAPI_STATIC_FILES: bool = True
-    REQUEST_LIMITER_REDIS_PREFIX: str = "fastapi-limiter"
+    REQUEST_LIMITER_REDIS_PREFIX: str = "api-limiter"
 
 
 

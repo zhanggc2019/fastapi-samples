@@ -149,7 +149,7 @@ def register_router(app: FastAPI) -> None:
     app.include_router(api_router, prefix=settings.API_V1_STR)
 
     # Extra
-    # ensure_unique_route_names(app)
+    ensure_unique_route_names(app)
 
 
 def register_page(app: FastAPI) -> None:

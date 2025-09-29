@@ -1,15 +1,12 @@
 import uuid
-from typing import Any, List
-from fastapi import APIRouter, Depends, HTTPException, status
+from typing import Any
+
+from fastapi import APIRouter, HTTPException, status
 from fastapi.responses import StreamingResponse
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
 from app.api.deps import CurrentUser, SessionDep
-from app.models import (
-    Chat, ChatCreate, ChatPublic, ChatRequest, Message, MessageCreate,
-    MessagePublic, User
-)
+from app.models import Chat, ChatCreate, ChatPublic, ChatRequest, Message
 
 router = APIRouter()
 
@@ -93,7 +90,7 @@ async def resume_chat_stream(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="无权访问此聊天"
         )
-    
+
     # 检查是否有未完成的流
     # 这里应该检查实际的流状态
     # 目前返回204表示无内容
@@ -103,7 +100,7 @@ async def resume_chat_stream(
     )
 
 
-@router.get("/history", response_model=List[ChatPublic])
+@router.get("/history", response_model=list[ChatPublic])
 async def get_chat_history(
     *,
     db: SessionDep,
