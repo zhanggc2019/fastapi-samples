@@ -1,6 +1,11 @@
+import hashlib
+import os
+import secrets
+import time
 from typing import Any
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.ext.asyncio import AsyncSession
+
+from fastapi import APIRouter
+from fastapi.responses import JSONResponse
 
 from app.api.deps import SessionDep
 from app.models import XhsShareRequest, XhsShareResponse
@@ -10,53 +15,57 @@ router = APIRouter()
 
 @router.post("/xhs/share-config", response_model=XhsShareResponse)
 async def create_xhs_share_config(
-    *,
-    db: SessionDep,
-    share_request: XhsShareRequest
+    *, _db: SessionDep, share_request: XhsShareRequest
 ) -> Any:
     """
     生成小红书分享配置
     """
-    try:
-        # 验证请求数据
-        if not share_request.title or len(share_request.title) > 60:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="标题长度必须在1-60字符之间"
+    if share_request.type == "video":
+        if not share_request.video or not share_request.cover:
+            return JSONResponse(
+                status_code=400,
+                content={"message": "video url and cover are required for video posts"},
             )
-        
-        if not share_request.content or len(share_request.content) > 2000:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="内容长度必须在1-2000字符之间"
+
+    if share_request.type == "normal":
+        if not share_request.images or len(share_request.images) == 0:
+            return JSONResponse(
+                status_code=400,
+                content={"message": "at least one image is required for normal posts"},
             )
-        
-        # 生成分享配置
-        share_info = {
-            "type": share_request.type,
-            "title": share_request.title,
-            "content": share_request.content,
-            "images": share_request.images or [],
-            "video": share_request.video,
-            "cover": share_request.cover,
-            "platform": "xiaohongshu",
-            "timestamp": "2025-09-28T16:00:00Z",
-            "shareUrl": f"https://xiaohongshu.com/share/{share_request.type}",
-            "qrCode": f"https://api.qrserver.com/v1/create-qr-code/?size=200x200&data={share_request.title}",
-            "tags": ["AI生成", "智能分享"],
-            "category": "科技"
-        }
-        
-        return XhsShareResponse(
-            success=True,
-            shareInfo=share_info
+
+    app_key = os.getenv("XHS_APP_KEY")
+    access_token = os.getenv("XHS_ACCESS_TOKEN")
+
+    if not app_key or not access_token:
+        return JSONResponse(
+            status_code=500,
+            content={
+                "message": "Missing XHS_APP_KEY or XHS_ACCESS_TOKEN environment variables.",
+            },
         )
-        
-    except HTTPException:
-        # 重新抛出HTTP异常
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"生成分享配置失败: {str(e)}"
-        )
+
+    timestamp = str(int(time.time()))
+    nonce = secrets.token_hex(16)
+
+    params = {"appKey": app_key, "nonce": nonce, "timeStamp": timestamp}
+    sorted_params = "&".join(f"{key}={params[key]}" for key in sorted(params))
+    signature = hashlib.sha256(f"{sorted_params}{access_token}".encode()).hexdigest()
+
+    share_info = {
+        "type": share_request.type,
+        "title": share_request.title[:30],
+        "content": share_request.content[:1000],
+        "images": share_request.images or [],
+        "video": share_request.video,
+        "cover": share_request.cover,
+    }
+
+    verify_config = {
+        "appKey": app_key,
+        "nonce": nonce,
+        "timestamp": timestamp,
+        "signature": signature,
+    }
+
+    return XhsShareResponse(shareInfo=share_info, verifyConfig=verify_config)

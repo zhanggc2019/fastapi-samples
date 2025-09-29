@@ -25,11 +25,13 @@ def ensure_unique_route_names(app: FastAPI) -> None:
     for route in app.routes:
         if isinstance(route, APIRoute):
             if route.name in temp_routes:
-                raise ValueError(f'Non-unique route name: {route.name}')
+                raise ValueError(f"Non-unique route name: {route.name}")
             temp_routes.add(route.name)
 
 
-async def http_limit_callback(request: Request, response: Response, expire: int) -> None:
+async def http_limit_callback(
+    _request: Request, _response: Response, expire: int
+) -> None:
     """
     请求限制时的默认回调函数
 
@@ -40,7 +42,9 @@ async def http_limit_callback(request: Request, response: Response, expire: int)
     """
     expires = ceil(expire / 1000)
     raise errors.HTTPError(
-        code=StandardResponseCode.HTTP_429, msg='请求过于频繁，请稍后重试', headers={'Retry-After': str(expires)}
+        code=StandardResponseCode.HTTP_429,
+        msg="请求过于频繁，请稍后重试",
+        headers={"Retry-After": str(expires)},
     )
 
 
@@ -66,11 +70,10 @@ def timer(func) -> Callable:
     def _log_time(func, elapsed: float):
         # 智能选择单位（秒、毫秒、微秒、纳秒）
         if elapsed >= 1:
-            unit, factor = 's', 1
+            unit, factor = "s", 1
         else:
-            unit, factor = 'ms', 1e3
+            unit, factor = "ms", 1e3
 
-        log.info(f'{func.__module__}.{func.__name__} | {elapsed * factor:.3f} {unit}')
+        log.info(f"{func.__module__}.{func.__name__} | {elapsed * factor:.3f} {unit}")
 
     return async_wrapper if asyncio.iscoroutinefunction(func) else sync_wrapper
-

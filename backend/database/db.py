@@ -14,7 +14,6 @@ from sqlalchemy.ext.asyncio import (
 )
 
 from common.log import log
-from common.model import MappedBase
 from core.config import settings
 from sqlmodel import SQLModel
 

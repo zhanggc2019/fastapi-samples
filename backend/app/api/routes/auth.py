@@ -6,7 +6,7 @@ from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy import select
 
 from app.api.deps import SessionDep
-from app.models import LoginRequest, LoginResponse, RegisterResponse, User, UserRegister
+from app.models import LoginRequest, LoginResponse, RegisterResponse, User, UserPublic, UserRegister
 from core.config import settings
 from core.security import authenticate_user, create_access_token, get_password_hash
 
@@ -22,7 +22,10 @@ async def login(
     """
     用户登录，认证方式 ：使用标准的OAuth2密码授权表单，REST API调用，适合前端应用通过JSON格式发送请求
     """
-    user = await authenticate_user(db, form_data.username, form_data.password)
+    try:
+        user = await authenticate_user(db, form_data.username, form_data.password)
+    except HTTPException as e:
+        raise e
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -58,31 +61,44 @@ async def login_credentials(
     """
     认证方式 ：使用自定义的JSON请求体 ( LoginRequest )，REST API调用，适合前端应用通过JSON格式发送请求
     """
-    user = await authenticate_user(db, login_data.email, login_data.password)
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="用户名或密码错误"
-        )
-    elif not user.is_active:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="用户账户已被禁用"
+    from common.log import log
+    
+    try:
+        user = await authenticate_user(db, login_data.email, login_data.password)
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="用户名或密码错误"
+            )
+        elif not user.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="用户账户已被禁用"
+            )
+
+        # 创建访问令牌
+        access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+        access_token = create_access_token(
+            subject=str(user.id),
+            expires_delta=access_token_expires,
+            user=user
         )
 
-    # 创建访问令牌
-    access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = create_access_token(
-        subject=str(user.id),
-        expires_delta=access_token_expires,
-        user=user
-    )
-
-    return LoginResponse(
-        access_token=access_token,
-        token_type="bearer",
-        user=user
-    )
+        return LoginResponse(
+            access_token=access_token,
+            token_type="bearer",
+            user=UserPublic.from_user(user)
+        )
+    except HTTPException:
+        # 重新抛出已知的HTTP异常
+        raise
+    except Exception as e:
+        # 记录详细的错误信息
+        log.error(f"登录过程中发生未知错误: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="登录过程中发生内部错误"
+        )
 
 
 # 游客登录功能已取消

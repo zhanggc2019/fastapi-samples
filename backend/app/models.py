@@ -1,20 +1,25 @@
 import uuid
-from datetime import datetime, timezone
-from typing import Literal, Union, List, Optional, Dict, Any
+from datetime import UTC, datetime
 from enum import Enum
+from typing import Any, Literal
 
-from pydantic import EmailStr
-from sqlmodel import Field, Relationship, SQLModel, Column, JSON
+from pydantic import AnyUrl, EmailStr, field_validator
+from sqlmodel import JSON, Column, Field, Relationship, SQLModel
 
 
 def utc_now():
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 # ===== 枚举定义 =====
 class UserType(str, Enum):
     GUEST = "guest"
     REGULAR = "regular"
+
+
+class ChatModelId(str, Enum):
+    CHAT_MODEL = "chat-model"
+    CHAT_MODEL_REASONING = "chat-model-reasoning"
 
 
 class Visibility(str, Enum):
@@ -31,7 +36,7 @@ class MessageRole(str, Enum):
 # ===== 用户模型 =====
 class UserBase(SQLModel):
     email: str = Field(max_length=64, unique=True, index=True)
-    password: Optional[str] = Field(default=None, max_length=64)
+    password: str | None = Field(default=None, max_length=64)
     is_active: bool = Field(default=True)
 
 
@@ -52,12 +57,25 @@ class User(UserBase, table=True):
 
     # Relationships
     chats: list["Chat"] = Relationship(back_populates="user", cascade_delete=True)
-    documents: list["Document"] = Relationship(back_populates="user", cascade_delete=True)
-    suggestions: list["Suggestion"] = Relationship(back_populates="user", cascade_delete=True)
+    documents: list["Document"] = Relationship(
+        back_populates="user", cascade_delete=True
+    )
+    suggestions: list["Suggestion"] = Relationship(
+        back_populates="user", cascade_delete=True
+    )
 
 
 class UserPublic(UserBase):
-    id: uuid.UUID
+    id: str
+    
+    @classmethod
+    def from_user(cls, user: User) -> "UserPublic":
+        """从User对象创建UserPublic对象"""
+        return cls(
+            id=str(user.id),
+            email=user.email,
+            is_active=user.is_active
+        )
 
 
 # ===== 聊天模型 =====
@@ -72,14 +90,16 @@ class ChatCreate(ChatBase):
 
 class Chat(ChatBase, table=True):
     __tablename__ = "Chat"
-    
+
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
-    user_id: uuid.UUID = Field(foreign_key="User.id", nullable=False, ondelete="CASCADE")
+    user_id: uuid.UUID = Field(
+        foreign_key="User.id", nullable=False, ondelete="CASCADE"
+    )
     created_at: datetime = Field(default_factory=utc_now)
-    last_context: Optional[Dict[str, Any]] = Field(default=None, sa_column=Column(JSON))
-    
+    last_context: dict[str, Any] | None = Field(default=None, sa_column=Column(JSON))
+
     # Relationships
-    user: Optional[User] = Relationship(back_populates="chats")
+    user: User | None = Relationship(back_populates="chats")
     messages: list["Message"] = Relationship(back_populates="chat", cascade_delete=True)
     votes: list["Vote"] = Relationship(back_populates="chat", cascade_delete=True)
 
@@ -93,23 +113,94 @@ class ChatPublic(ChatBase):
 # ===== 消息模型 =====
 class MessageBase(SQLModel):
     role: MessageRole
-    parts: List[Dict[str, Any]] = Field(default_factory=list, sa_column=Column(JSON))
-    attachments: List[Dict[str, Any]] = Field(default_factory=list, sa_column=Column(JSON))
+    parts: list[dict[str, Any]] = Field(default_factory=list, sa_column=Column(JSON))
+    attachments: list[dict[str, Any]] = Field(
+        default_factory=list, sa_column=Column(JSON)
+    )
 
 
 class MessageCreate(MessageBase):
     id: uuid.UUID = Field(default_factory=uuid.uuid4)
 
+    @field_validator("role", mode="before")
+    @classmethod
+    def validate_role_is_user(cls, value: Any) -> MessageRole:
+        """确保聊天请求只提交用户消息。"""
+
+        # 处理字符串输入
+        if isinstance(value, str):
+            if value == "user":
+                return MessageRole.USER
+            else:
+                raise ValueError("Only user messages can be submitted to the chat API.")
+        # 处理枚举值输入
+        if value != MessageRole.USER:
+            raise ValueError("Only user messages can be submitted to the chat API.")
+        return value
+
+    @field_validator("parts", mode="before")
+    @classmethod
+    def validate_parts(cls, value: Any) -> list[dict[str, Any]]:
+        """校验消息片段结构，与NextJS版本保持一致。"""
+
+        if not isinstance(value, list) or not value:
+            raise ValueError("Message parts must be a non-empty list.")
+
+        validated: list[dict[str, Any]] = []
+        for index, part in enumerate(value):
+            if not isinstance(part, dict):
+                raise ValueError("Each message part must be an object.")
+
+            part_type = part.get("type")
+            if part_type == "text":
+                text = part.get("text")
+                if not isinstance(text, str) or not text.strip():
+                    raise ValueError(
+                        "Text parts must include a non-empty string field 'text'."
+                    )
+                if len(text) > 2000:
+                    raise ValueError("Text parts cannot exceed 2000 characters.")
+                validated.append({"type": "text", "text": text})
+                continue
+
+            if part_type == "file":
+                media_type = part.get("mediaType")
+                name = part.get("name")
+                url = part.get("url")
+                if media_type not in {"image/jpeg", "image/png"}:
+                    raise ValueError("File parts must declare a supported mediaType.")
+                if not isinstance(name, str) or not name.strip() or len(name) > 100:
+                    raise ValueError(
+                        "File parts must include a filename up to 100 characters."
+                    )
+                if not isinstance(url, str) or not url:
+                    raise ValueError("File parts must include a valid url string.")
+                validated.append(
+                    {
+                        "type": "file",
+                        "mediaType": media_type,
+                        "name": name,
+                        "url": url,
+                    }
+                )
+                continue
+
+            raise ValueError(f"Unsupported message part type at index {index}.")
+
+        return validated
+
 
 class Message(MessageBase, table=True):
     __tablename__ = "Message_v2"
-    
+
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
-    chat_id: uuid.UUID = Field(foreign_key="Chat.id", nullable=False, ondelete="CASCADE")
+    chat_id: uuid.UUID = Field(
+        foreign_key="Chat.id", nullable=False, ondelete="CASCADE"
+    )
     created_at: datetime = Field(default_factory=utc_now)
-    
+
     # Relationships
-    chat: Optional[Chat] = Relationship(back_populates="messages")
+    chat: Chat | None = Relationship(back_populates="messages")
     votes: list["Vote"] = Relationship(back_populates="message", cascade_delete=True)
 
 
@@ -123,7 +214,7 @@ class MessagePublic(MessageBase):
 class ChatRequest(SQLModel):
     id: uuid.UUID
     message: MessageCreate
-    selectedChatModel: str = "gpt-4"
+    selectedChatModel: ChatModelId = ChatModelId.CHAT_MODEL
     selectedVisibilityType: Visibility = Field(default=Visibility.PRIVATE)
 
 
@@ -155,20 +246,19 @@ class Token(SQLModel):
 
 
 class TokenPayload(SQLModel):
-    sub: Optional[str] = None
-    type: Optional[str] = None
+    sub: str | None = None
+    type: str | None = None
 
 
 # ===== AI工具模型 =====
 class ImageGenerationRequest(SQLModel):
     prompt: str = Field(description="图片描述文本")
     style: str = "realistic"  # realistic, artistic, cartoon, abstract
-    size: str = "1024x1024"   # 512x512, 768x768, 1024x1024
+    size: str = "1024x1024"  # 512x512, 768x768, 1024x1024
 
 
 class ImageGenerationResponse(SQLModel):
-    success: bool
-    result: Dict[str, Any]
+    result: dict[str, Any]
     prompt: str
     style: str
     size: str
@@ -177,9 +267,9 @@ class ImageGenerationResponse(SQLModel):
 class ContentRewriteRequest(SQLModel):
     originalContent: str = Field(description="原始内容")
     rewriteType: str = "improve_clarity"  # improve_clarity, make_professional, etc.
-    targetTone: Optional[str] = None      # professional, casual, friendly, etc.
-    targetAudience: Optional[str] = None
-    additionalInstructions: Optional[str] = None
+    targetTone: str | None = None  # professional, casual, friendly, etc.
+    targetAudience: str | None = None
+    additionalInstructions: str | None = None
 
 
 class ContentRewriteResponse(SQLModel):
@@ -187,19 +277,19 @@ class ContentRewriteResponse(SQLModel):
     originalContent: str
     rewrittenContent: str
     rewriteType: str
-    targetTone: Optional[str] = None
-    targetAudience: Optional[str] = None
+    targetTone: str | None = None
+    targetAudience: str | None = None
     originalLength: int
     rewrittenLength: int
 
 
 # ===== 文件上传模型 =====
 class FileUploadResponse(SQLModel):
-    success: bool
-    filename: str
     url: str
-    size: int
+    pathname: str
     contentType: str
+    size: int
+    uploadedAt: datetime
 
 
 # ===== 文档模型 =====
@@ -212,7 +302,7 @@ class DocumentKind(str, Enum):
 
 class DocumentBase(SQLModel):
     title: str
-    content: Optional[str] = None
+    content: str | None = None
     kind: DocumentKind = Field(default=DocumentKind.TEXT)
 
 
@@ -221,9 +311,9 @@ class DocumentCreate(DocumentBase):
 
 
 class DocumentUpdate(DocumentBase):
-    title: Optional[str] = None
-    content: Optional[str] = None
-    kind: Optional[DocumentKind] = None
+    title: str | None = None
+    content: str | None = None
+    kind: DocumentKind | None = None
 
 
 class Document(DocumentBase, table=True):
@@ -231,10 +321,12 @@ class Document(DocumentBase, table=True):
 
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     created_at: datetime = Field(default_factory=utc_now, primary_key=True)
-    user_id: uuid.UUID = Field(foreign_key="User.id", nullable=False, ondelete="CASCADE")
+    user_id: uuid.UUID = Field(
+        foreign_key="User.id", nullable=False, ondelete="CASCADE"
+    )
 
     # Relationships
-    user: Optional[User] = Relationship(back_populates="documents")
+    user: User | None = Relationship(back_populates="documents")
 
 
 class DocumentPublic(DocumentBase):
@@ -267,15 +359,15 @@ class Vote(VoteBase, table=True):
     message_id: uuid.UUID = Field(foreign_key="Message_v2.id", primary_key=True)
 
     # Relationships
-    chat: Optional[Chat] = Relationship(back_populates="votes")
-    message: Optional[Message] = Relationship(back_populates="votes")
+    chat: Chat | None = Relationship(back_populates="votes")
+    message: Message | None = Relationship(back_populates="votes")
 
 
 # ===== 建议模型 =====
 class SuggestionBase(SQLModel):
     original_text: str
     suggested_text: str
-    description: Optional[str] = None
+    description: str | None = None
     is_resolved: bool = Field(default=False)
 
 
@@ -284,24 +376,29 @@ class Suggestion(SuggestionBase, table=True):
 
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     document_id: uuid.UUID = Field(foreign_key="Document.id", nullable=False)
-    document_created_at: datetime = Field(foreign_key="Document.created_at", nullable=False)
-    user_id: uuid.UUID = Field(foreign_key="User.id", nullable=False, ondelete="CASCADE")
+    document_created_at: datetime = Field(
+        foreign_key="Document.created_at", nullable=False
+    )
+    user_id: uuid.UUID = Field(
+        foreign_key="User.id", nullable=False, ondelete="CASCADE"
+    )
     created_at: datetime = Field(default_factory=utc_now)
 
     # Relationships
-    user: Optional[User] = Relationship(back_populates="suggestions")
+    user: User | None = Relationship(back_populates="suggestions")
 
 
 # ===== 小红书分享模型 =====
 class XhsShareRequest(SQLModel):
-    type: str
+    type: Literal["normal", "video"]
     title: str = Field(min_length=1, max_length=60)
     content: str = Field(min_length=1, max_length=2000)
-    images: Optional[List[str]] = None
-    video: Optional[str] = None
-    cover: Optional[str] = None
+    images: list[AnyUrl] | None = None
+    video: AnyUrl | None = None
+    cover: AnyUrl | None = None
+    url: AnyUrl
 
 
 class XhsShareResponse(SQLModel):
-    success: bool
-    shareInfo: Dict[str, Any]
+    shareInfo: dict[str, Any]
+    verifyConfig: dict[str, str]

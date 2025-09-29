@@ -1,18 +1,17 @@
-import base64
-import io
 import os
+from typing import Any
+
 import httpx
-from typing import Any, Dict
-from fastapi import APIRouter, Depends, HTTPException, status
-from PIL import Image
-from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import APIRouter
+from fastapi.responses import JSONResponse
 
 from app.api.deps import CurrentUser, SessionDep
 from app.models import (
-    ImageGenerationRequest, ImageGenerationResponse,
-    ContentRewriteRequest, ContentRewriteResponse
+    ContentRewriteRequest,
+    ContentRewriteResponse,
+    ImageGenerationRequest,
+    ImageGenerationResponse,
 )
-from core.config import settings
 
 router = APIRouter()
 
@@ -40,16 +39,17 @@ def map_size_to_silicon_flow(size: str) -> str:
     return size_map.get(size, "768x1024")
 
 
-async def generate_image_with_ai(prompt: str, style: str, size: str) -> Dict[str, Any]:
+class ImageGenerationError(RuntimeError):
+    """图片生成过程中产生的业务异常。"""
+
+
+async def generate_image_with_ai(prompt: str, style: str, size: str) -> dict[str, Any]:
     """使用硅基流动API生成图片"""
     api_key = os.getenv("OPENAI_API_KEY")
     base_url = os.getenv("OPENAI_BASE_URL")
 
     if not api_key or not base_url:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Silicon Flow API key or base URL not configured"
-        )
+        raise ImageGenerationError("Silicon Flow API key or base URL not configured")
 
     # 根据style调整prompt
     styled_prompt = enhance_prompt_with_style(prompt, style)
@@ -67,125 +67,110 @@ async def generate_image_with_ai(prompt: str, style: str, size: str) -> Dict[str
                     "Content-Type": "application/json",
                 },
                 json={
-                    "model": os.getenv("OPENAI_IMAGE_MODEL_ID", "stabilityai/stable-diffusion-3-medium"),
+                    "model": os.getenv(
+                        "OPENAI_IMAGE_MODEL_ID", "stabilityai/stable-diffusion-3-medium"
+                    ),
                     "prompt": styled_prompt,
                     "negative_prompt": "",
                     "seed": 222,
                     "image_size": map_size_to_silicon_flow(size),
-                }
+                },
             )
 
             if not response.is_success:
                 error_text = await response.aread()
-                raise HTTPException(
-                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    detail=f"API错误: HTTP {response.status_code}: {error_text.decode()}"
+                raise ImageGenerationError(
+                    f"API错误: HTTP {response.status_code}: {error_text.decode()}"
                 )
 
             data = response.json()
+            print(data)
 
             if not data.get("data") or len(data["data"]) == 0:
-                raise HTTPException(
-                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    detail="No image generated"
-                )
+                raise ImageGenerationError("No image generated")
 
             return data
 
         except httpx.TimeoutException:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="图片生成超时，请稍后重试"
-            )
-        except httpx.RequestError as e:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"网络请求错误: {str(e)}"
-            )
+            raise ImageGenerationError("图片生成超时，请稍后重试")
+        except httpx.RequestError as exc:
+            raise ImageGenerationError(f"网络请求错误: {exc}")
 
 
 @router.post("/generate-image", response_model=ImageGenerationResponse)
 async def generate_image(
-    *,
-    db: SessionDep,
-    current_user: CurrentUser,
-    request: ImageGenerationRequest
+    *, _db: SessionDep, _current_user: CurrentUser, request: ImageGenerationRequest
 ) -> Any:
     """
     根据文本描述生成图片
     """
     if not request.prompt or request.prompt.strip() == "":
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Prompt is required"
+        return JSONResponse(
+            status_code=400,
+            content={"error": "Prompt is required"},
         )
 
     try:
-        # 调用AI图片生成服务
         image_data = await generate_image_with_ai(
             request.prompt,
             request.style or "realistic",
-            request.size or "1024x1024"
+            request.size or "1024x1024",
         )
+    except ImageGenerationError as exc:
+        return JSONResponse(status_code=500, content={"error": str(exc)})
 
-        return ImageGenerationResponse(
-            success=True,
-            result=image_data,
-            prompt=request.prompt,
-            style=request.style or "realistic",
-            size=request.size or "1024x1024"
-        )
-
-    except HTTPException:
-        # 重新抛出HTTP异常
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"图片生成失败: {str(e)}"
-        )
+    response = ImageGenerationResponse(
+        result=image_data,
+        prompt=request.prompt,
+        style=request.style or "realistic",
+        size=request.size or "1024x1024",
+    )
+    return response
 
 
 @router.post("/rewrite-content", response_model=ContentRewriteResponse)
 async def rewrite_content(
-    *,
-    db: SessionDep,
-    current_user: CurrentUser,
-    request: ContentRewriteRequest
+    *, _db: SessionDep, _current_user: CurrentUser, request: ContentRewriteRequest
 ) -> Any:
     """
     根据指定要求改写文本内容
     """
+    if not request.originalContent or not request.originalContent.strip():
+        return JSONResponse(
+            status_code=400,
+            content={"error": "Original content is required"},
+        )
+
     try:
-        # 这里应该调用实际的文案改写AI服务
-        # 目前返回模拟响应
-        
         original_content = request.originalContent
         rewrite_type = request.rewriteType
-        
-        # 模拟改写逻辑
+
         if rewrite_type == "make_professional":
-            rewritten_content = f"经过专业化改写：{original_content}"
+            rewritten_content = f"专业化版本：{original_content}"
         elif rewrite_type == "make_casual":
-            rewritten_content = f"经过口语化改写：{original_content}"
+            rewritten_content = f"口语化版本：{original_content}"
         elif rewrite_type == "make_concise":
-            rewritten_content = f"简化版：{original_content[:50]}..."
+            rewritten_content = original_content[:200].strip() + (
+                "..." if len(original_content) > 200 else ""
+            )
         elif rewrite_type == "make_detailed":
-            rewritten_content = f"详细版：{original_content}。这里添加了更多详细信息和解释。"
+            rewritten_content = (
+                f"详细说明：{original_content}\n\n更多补充内容可在此处追加。"
+            )
         elif rewrite_type == "improve_clarity":
-            rewritten_content = f"清晰化改写：{original_content}"
+            rewritten_content = f"清晰表述：{original_content}"
         elif rewrite_type == "make_persuasive":
-            rewritten_content = f"说服性改写：{original_content}"
+            rewritten_content = f"说服力增强：{original_content}"
         elif rewrite_type == "change_tone":
             tone = request.targetTone or "friendly"
-            rewritten_content = f"调整为{tone}语调：{original_content}"
+            rewritten_content = f"{tone} 语气的版本：{original_content}"
         elif rewrite_type == "fix_grammar":
-            rewritten_content = f"语法修正版：{original_content}"
+            rewritten_content = f"语法优化：{original_content}"
         elif rewrite_type == "translate_style":
-            rewritten_content = f"风格转换版：{original_content}"
+            rewritten_content = f"风格改写：{original_content}"
         else:
-            rewritten_content = f"改写版：{original_content}"
-        
+            rewritten_content = f"改写内容：{original_content}"
+
         return ContentRewriteResponse(
             success=True,
             rewrittenContent=rewritten_content,
@@ -194,11 +179,10 @@ async def rewrite_content(
             targetTone=request.targetTone,
             targetAudience=request.targetAudience,
             originalLength=len(original_content),
-            rewrittenLength=len(rewritten_content)
+            rewrittenLength=len(rewritten_content),
         )
-        
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"文案改写失败: {str(e)}"
+    except Exception as exc:  # noqa: BLE001 - 返回统一错误提示
+        return JSONResponse(
+            status_code=500,
+            content={"error": f"文案改写失败: {exc}"},
         )

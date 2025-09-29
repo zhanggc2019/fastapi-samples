@@ -1,8 +1,10 @@
 import os
 import uuid
+from datetime import UTC, datetime
 from typing import Any
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
-from sqlalchemy.ext.asyncio import AsyncSession
+
+from fastapi import APIRouter, File, UploadFile
+from fastapi.responses import JSONResponse
 
 from app.api.deps import CurrentUser, SessionDep
 from app.models import FileUploadResponse
@@ -13,55 +15,50 @@ router = APIRouter()
 
 @router.post("/files/upload", response_model=FileUploadResponse)
 async def upload_file(
-    *,
-    db: SessionDep,
-    current_user: CurrentUser,
-    file: UploadFile = File(...)
+    *, _db: SessionDep, _current_user: CurrentUser, file: UploadFile = File(...)
 ) -> Any:
     """
     上传文件
     """
-    # 验证文件类型
-    if file.content_type not in ["image/jpeg", "image/png"]:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="File type should be JPEG or PNG"
+    if file.content_type not in {"image/jpeg", "image/png"}:
+        return JSONResponse(
+            status_code=400,
+            content={"error": "File type should be JPEG or PNG"},
         )
-    
-    # 验证文件大小 (5MB)
-    if file.size and file.size > 5 * 1024 * 1024:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="File size should be less than 5MB"
-        )
-    
+
     try:
         # 生成唯一文件名
         file_extension = os.path.splitext(file.filename or "")[1]
         unique_filename = f"{uuid.uuid4()}{file_extension}"
         file_path = os.path.join(UPLOAD_DIR, unique_filename)
-        
+
         # 确保上传目录存在
         os.makedirs(UPLOAD_DIR, exist_ok=True)
-        
+
         # 保存文件
         with open(file_path, "wb") as buffer:
             content = await file.read()
+            if len(content) > 5 * 1024 * 1024:
+                return JSONResponse(
+                    status_code=400,
+                    content={"error": "File size should be less than 5MB"},
+                )
             buffer.write(content)
-        
+
         # 构建文件URL
         file_url = f"/static/upload/{unique_filename}"
-        
-        return FileUploadResponse(
-            success=True,
-            filename=unique_filename,
+
+        response = FileUploadResponse(
             url=file_url,
+            pathname=unique_filename,
+            contentType=file.content_type or "application/octet-stream",
             size=len(content),
-            contentType=file.content_type or "application/octet-stream"
+            uploadedAt=datetime.now(UTC),
         )
-        
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Upload failed: {str(e)}"
+        return response
+
+    except Exception as exc:  # noqa: BLE001 - 记录异常即可
+        return JSONResponse(
+            status_code=500,
+            content={"error": f"Upload failed: {exc}"},
         )

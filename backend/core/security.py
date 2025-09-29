@@ -1,10 +1,11 @@
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta, UTC
 from typing import Any
 
 import jwt
 from passlib.context import CryptContext
 from app.models import User
 from core.config import settings
+from common.log import log
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -15,10 +16,10 @@ DUMMY_PASSWORD = "$2b$12$EixZaYVK1fsbw1ZfbX3OXePaWxn96p36WQoeG6Lruj3vjPGga31lW"
 
 
 def create_access_token(subject: str | Any, expires_delta: timedelta, user: User) -> str:
-    expire = datetime.now(timezone.utc) + expires_delta
+    expire = datetime.now(UTC) + expires_delta
     to_encode = {"exp": expire, "sub": str(subject)}
 
-    to_encode["id"] = user.id
+    to_encode["id"] = str(user.id)  # 将UUID转换为字符串
     to_encode["email"] = user.email
     encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
@@ -35,20 +36,27 @@ def get_password_hash(password: str) -> str:
 async def authenticate_user(db, email: str, password: str)-> User | None:
     """验证用户凭据"""
     from sqlalchemy import select
+    try:
 
+        # 查询用户
+        statement = select(User).where(User.email == email)
+        result = await db.execute(statement)
+        user = result.scalar_one_or_none()
+        # 无论用户是否存在，都进行密码验证以防止时序攻击
+        if not user:
+            verify_password(password, DUMMY_PASSWORD)
+            return None
 
-    # 查询用户
-    statement = select(User).where(User.email == email)
-    result = await db.execute(statement)
-    user = result.scalar_one_or_none()
+        if not user.password:
+            verify_password(password, DUMMY_PASSWORD)
+            return None
 
-    if not user:
-        return None
-
-    if not user.password:
-        return None
-
-    if not verify_password(password, user.password):
+        if not verify_password(password, user.password):
+            verify_password(password, DUMMY_PASSWORD)
+            return None
+    except Exception as e:
+        verify_password(password, DUMMY_PASSWORD)
+        log.error(f"认证用户 {email} 时发生错误: {e}")
         return None
 
     return user

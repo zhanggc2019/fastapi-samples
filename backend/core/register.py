@@ -23,7 +23,7 @@ from utils.check import ensure_unique_route_names, http_limit_callback
 
 
 @asynccontextmanager
-async def register_init(app: FastAPI) -> AsyncGenerator[None, None]:
+async def register_init(_app: FastAPI) -> AsyncGenerator[None, None]:
     """
     启动初始化
 
@@ -65,8 +65,8 @@ def register_app() -> FastAPI:
                     super().build_middleware_stack(),
                     allow_origins=settings.CORS_ALLOWED_ORIGINS,
                     allow_credentials=True,
-                    allow_methods=['*'],
-                    allow_headers=['*'],
+                    allow_methods=["*"],
+                    allow_headers=["*"],
                     expose_headers=settings.CORS_EXPOSE_HEADERS,
                 )
 
@@ -101,11 +101,11 @@ def register_static_file(app: FastAPI) -> None:
     # 上传静态资源
     if not os.path.exists(UPLOAD_DIR):
         os.makedirs(UPLOAD_DIR)
-    app.mount('/static/upload', StaticFiles(directory=UPLOAD_DIR), name='upload')
+    app.mount("/static/upload", StaticFiles(directory=UPLOAD_DIR), name="upload")
 
     # 固有静态资源
     if settings.FASTAPI_STATIC_FILES:
-        app.mount('/static', StaticFiles(directory=STATIC_DIR), name='static')
+        app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 
 def register_middleware(app: FastAPI) -> None:
@@ -115,6 +115,10 @@ def register_middleware(app: FastAPI) -> None:
     :param app: FastAPI 应用实例
     :return:
     """
+    # Exception handler (should be first to catch all exceptions)
+    from middleware.exception_middleware import ExceptionHandlerMiddleware
+    app.add_middleware(ExceptionHandlerMiddleware)
+
     # Opera log
     # app.add_middleware(OperaLogMiddleware)
 
@@ -146,6 +150,7 @@ def register_router(app: FastAPI) -> None:
     :return:
     """
     from app.api.routers import api_router
+
     app.include_router(api_router, prefix=settings.API_V1_STR)
 
     # Extra
